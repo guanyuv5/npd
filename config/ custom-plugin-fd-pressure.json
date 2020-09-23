@@ -1,0 +1,34 @@
+{
+    "plugin": "custom",
+    "pluginConfig": {
+      "invoke_interval": "30s",
+      "timeout": "5s",
+      "max_output_length": 512,
+      "concurrency": 2,
+      "enable_message_change_based_condition_update": true
+    },
+    "source": "tke_npd_fd-custom-plugin-monitor",
+    "metricsReporting": true,
+    "conditions": [
+      {
+        "type": "FDPressure",
+        "reason": "FDUnderPressure",
+        "message": "FD is Under Pressure"
+      }
+    ],
+    "rules": [
+      {
+        "type": "temporary",
+        "reason": "FDUpperPressure",
+        "path": "/config/plugin/check_file_nr.sh",
+        "timeout": "3s"
+      },
+      {
+        "type": "permanent",
+        "condition": "FDPressure",
+        "reason": "FDUpperPressure",
+        "path": "/config/plugin/check_file_nr.sh",
+        "timeout": "3s"
+      }
+    ]
+  }
