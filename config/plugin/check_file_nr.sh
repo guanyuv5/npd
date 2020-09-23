@@ -12,7 +12,7 @@ fi
 read curr alloc limit < /proc/sys/fs/file-nr
 used=`echo "scale=5; (${curr} + ${alloc}) / ${limit} > ${percentage}" | bc`
 
-if [[ $used -eq 1 ]] ; then
+if (( (${curr} + ${alloc}) > ${limit} * 8 /10 )); then
         echo "curr: ${curr}  alloc: ${alloc}  limit: ${limit}"
         exit $NONOK
 else

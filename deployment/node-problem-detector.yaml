@@ -1,0 +1,176 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-problem-detector
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-problem-detector
+subjects:
+  - kind: ServiceAccount
+    name: node-problem-detector
+    namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-problem-detector
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/status
+    verbs:
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+      - update
+  - nonResourceURLs:
+      - "/metrics"
+    verbs:
+      - get
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kube-system
+  name: node-problem-detector
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-problem-detector
+  namespace: kube-system
+  labels:
+    app: node-problem-detector
+spec:
+  selector:
+    matchLabels:
+      name: node-problem-detector-ds
+  template:
+    metadata:
+      labels:
+        name: node-problem-detector-ds
+    spec:
+      serviceAccount: node-problem-detector
+      hostNetwork: true
+      containers:
+        - imagePullPolicy: Always
+          name: node-problem-detector
+          command:
+            - /node-problem-detector
+            - --logtostderr
+            - --v=3
+            - --config.system-log-monitor=/config/kernel-monitor.json,/config/docker-monitor.json
+            - --config.custom-plugin-monitor=/config/custom-plugin-fd-pressure.json
+          image: ccr.ccs.tencentyun.com/npd-test/node-problem-detector:v0.8.4
+          securityContext:
+            privileged: true
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 800Mi
+            requests:
+              cpu: 100m
+              memory: 80Mi
+          volumeMounts:
+            - name: log
+              mountPath: /var/log
+              readOnly: true
+            - name: kmsg
+              mountPath: /dev/kmsg
+              readOnly: true
+            - name: localtime
+              mountPath: /etc/localtime
+              readOnly: true
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+      volumes:
+        - name: log
+          hostPath:
+            path: /var/log/
+        - name: kmsg
+          hostPath:
+            path: /dev/kmsg
+        - name: localtime
+          hostPath:
+            path: /etc/localtime
+
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-problem-detector
+  namespace: kube-system
+  labels:
+    app: node-problem-detector
+spec:
+  selector:
+    matchLabels:
+      app: node-problem-detector
+  template:
+    metadata:
+      labels:
+        app: node-problem-detector
+    spec:
+      containers:
+      - name: node-problem-detector
+        command:
+        - /node-problem-detector
+        - --logtostderr
+        - --config.system-log-monitor=/config/kernel-monitor.json,/config/docker-monitor.json
+        - --config.custom-plugin-monitor=/config/custom-plugin-fd-pressure.json
+        image: ccr.ccs.tencentyun.com/npd-test/node-problem-detector:v0.8.4
+        resources:
+          limits:
+            cpu: 10m
+            memory: 80Mi
+          requests:
+            cpu: 10m
+            memory: 80Mi
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        volumeMounts:
+        - name: log
+          mountPath: /var/log
+          readOnly: true
+        - name: kmsg
+          mountPath: /dev/kmsg
+          readOnly: true
+        # Make sure node problem detector is in the same timezone
+        # with the host.
+        - name: localtime
+          mountPath: /etc/localtime
+          readOnly: true
+      volumes:
+      - name: log
+        # Config `log` to your system log directory
+        hostPath:
+          path: /var/log/
+      - name: kmsg
+        hostPath:
+          path: /dev/kmsg
+      - name: localtime
+        hostPath:
+          path: /etc/localtime
+     
